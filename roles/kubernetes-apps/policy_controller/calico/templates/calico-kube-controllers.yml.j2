@@ -1,35 +1,41 @@
-apiVersion: apps/v1beta2
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: calico-kube-controllers
   namespace: kube-system
   labels:
     k8s-app: calico-kube-controllers
-    kubernetes.io/cluster-service: "true"
 spec:
   replicas: 1
   strategy:
-    type: RollingUpdate
+    type: Recreate
   selector:
     matchLabels:
-      kubernetes.io/cluster-service: "true"
       k8s-app: calico-kube-controllers
   template:
     metadata:
       name: calico-kube-controllers
       namespace: kube-system
       labels:
-        kubernetes.io/cluster-service: "true"
         k8s-app: calico-kube-controllers
     spec:
+      nodeSelector:
+        {{ calico_policy_controller_deployment_nodeselector }}
+{% if calico_datastore == "etcd" %}
       hostNetwork: true
+{% endif %}
       serviceAccountName: calico-kube-controllers
       tolerations:
-        - effect: NoSchedule
+        - key: CriticalAddonsOnly
           operator: Exists
-{% if kube_version is version('v1.11.1', '>=') %}
-      priorityClassName: system-cluster-critical
+        - key: node-role.kubernetes.io/control-plane
+          effect: NoSchedule
+        - key: node-role.kubernetes.io/master
+          effect: NoSchedule
+{% if policy_controller_extra_tolerations is defined %}
+        {{ policy_controller_extra_tolerations | list | to_nice_yaml(indent=2) | indent(8) }}
 {% endif %}
+      priorityClassName: system-cluster-critical
       containers:
         - name: calico-kube-controllers
           image: {{ calico_policy_image_repo }}:{{ calico_policy_image_tag }}
@@ -41,7 +47,33 @@ spec:
             requests:
               cpu: {{ calico_policy_controller_cpu_requests }}
               memory: {{ calico_policy_controller_memory_requests }}
+          livenessProbe:
+            exec:
+              command:
+              - /usr/bin/check-status
+              - -l
+            periodSeconds: 10
+            initialDelaySeconds: 10
+            failureThreshold: 6
+          readinessProbe:
+            exec:
+              command:
+              - /usr/bin/check-status
+              - -r
+            periodSeconds: 10
+          securityContext:
+            runAsNonRoot: true
           env:
+            - name: LOG_LEVEL
+              value: {{ calico_policy_controller_log_level }}
+{% if calico_datastore == "kdd" %}
+            - name: ENABLED_CONTROLLERS
+              value: node
+            - name: DATASTORE_TYPE
+              value: kubernetes
+{% else %}
+            - name: ENABLED_CONTROLLERS
+              value: policy,namespace,serviceaccount,workloadendpoint,node
             - name: ETCD_ENDPOINTS
               value: "{{ etcd_access_addresses }}"
             - name: ETCD_CA_CERT_FILE
@@ -58,3 +90,4 @@ spec:
       - hostPath:
           path: {{ calico_cert_dir }}
         name: etcd-certs
+{% endif %}

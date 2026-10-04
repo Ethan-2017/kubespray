@@ -1,21 +1,34 @@
 .vagrant
 *.retry
 **/vagrant_ansible_inventory
-inventory/credentials/
-inventory/group_vars/fake_hosts.yml
-inventory/host_vars/
+*.iml
 temp
+contrib/offline/container-images
+contrib/offline/container-images.tar.gz
+contrib/offline/offline-files
+contrib/offline/offline-files.tar.gz
 .idea
+.vscode
 .tox
 .cache
 *.bak
 *.tfstate
-*.tfstate.backup
+*.tfstate*backup
+*.lock.hcl
+.terraform/
 contrib/terraform/aws/credentials.tfvars
+.terraform.lock.hcl
 /ssh-bastion.conf
 **/*.sw[pon]
 *~
 vagrant/
+plugins/mitogen
+
+# Ansible inventory
+inventory/*
+!inventory/local
+!inventory/sample
+inventory/*/artifacts/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -24,7 +37,6 @@ __pycache__/
 
 # Distribution / packaging
 .Python
-inventory/*/artifacts/
 env/
 build/
 credentials/
@@ -94,3 +106,17 @@ target/
 # virtualenv
 venv/
 ENV/
+
+# molecule
+roles/**/molecule/**/__pycache__/
+
+# macOS
+.DS_Store
+
+# Temp location used by our scripts
+scripts/tmp/
+tmp.md
+
+# Ansible collection files
+kubernetes_sigs-kubespray*tar.gz
+ansible_collections
